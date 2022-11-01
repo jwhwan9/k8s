@@ -1,0 +1,118 @@
+[Update docker CentOS 7]
+
+> yum remove docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-selinux  docker-engine-selinux docker-engine
+> yum install -y yum-utils device-mapper-persistent-data lvm2
+> yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+===
+
+[Update docker repo]
+> vi /etc/yum.repos.d/docker.repo
+[docker-ce-stable]
+name=Docker CE Stable - $basearch
+baseurl=https://download.docker.com/linux/centos/$releasever/$basearch/stable
+enabled=1
+sslverify=0
+gpgcheck=0
+gpgkey=https://download.docker.com/linux/centos/gpg
+
+[update yum]
+> yum update
+
+[install docker]
+> yum install docker-ce
+
+
+> systemctl start docker
+> systemctl enable docker
+> systemctl status docker
+
+===
+[disable SELinux]
+> vi /etc/selinux/config
+ SELINUX=disabled
+ 
+[turn off SELINUX now]
+> setenforce 0
+
+[add kubernetes repository]
+>  cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=0
+sslverify=0
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+
+[install kubernetes]
+
+> yum install kubelet kubeadm kubectl kubernetes-cni
+
+===
+[etc\hosts]
+
+>vi /etc/hosts
+10.168.10.207 master-node
+10.168.10.208 node1 W-node1
+10.168.10.209 node2 W-node2
+
+===
+
+[Master Node: add firewall rule for ]
+> firewall-cmd --permanent --add-port=6443/tcp
+> firewall-cmd --permanent --add-port=2379-2380/tcp
+> firewall-cmd --permanent --add-port=10250/tcp
+> firewall-cmd --permanent --add-port=10251/tcp
+> firewall-cmd --permanent --add-port=10252/tcp
+> firewall-cmd --permanent --add-port=10255/tcp
+> firewall-cmd –-reload
+
+[Work Node: add firewall rule for]
+> firewall-cmd --permanent --add-port=10251/tcp
+> firewall-cmd --permanent --add-port=10255/tcp
+
+===
+[Update ip tables]
+
+> vi /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+sudo firewall-cmd –-reload
+
+===
+[Disable SWAP]
+> vi /etc/fstab
+mark swap config
+
+> swapoff -a
+
+===
+[Master Node: K8S cluster init. Get the token]
+> kubeadm init
+
+Then you can join any number of worker nodes by running the following on each as root: 
+You can retrieve it again by entering the following command:
+> kubeadm token create --print-join-command
+
+===
+[ Create required directories and start managing Kubernetes cluster]
+> mkdir -p $HOME/.kube
+> cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+> chown $(id -u):$(id -g) $HOME/.kube/config
+
+===
+[Set up Pod network for the Cluster]
+> kubectl get nodes
+> kubectl get pods --all-namespaces
+
+===
+[Worker Nodes: add to cluster]
+> kubeadm join 102.130.118.27:6443 --token 848gwg.mpe76povky8qeqvu --discovery-token-ca-cert-hash sha256:f0a16f51dcc077da9e41f01bdcbc465343668f36d55f41250c570a2be8321eac
+
+===
+[Master Nodes: Get nodes list in the cluster]
+> kubectl get nodes
+
